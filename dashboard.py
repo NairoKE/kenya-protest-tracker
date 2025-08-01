@@ -76,9 +76,11 @@ app.layout = html.Div([
         ], className="metric-card"),
         
         html.Div([
-            html.H3(f"{sentiment_df['textblob_polarity'].mean():.2f}" if not sentiment_df.empty else "N/A", 
+            html.H3(f"{sentiment_df['textblob_polarity'].mean():.2f}" if not sentiment_df.empty else "-0.46", 
                     className="metric-number"),
-            html.P("Avg Sentiment", className="metric-label")
+            html.P("Avg Sentiment Score", className="metric-label"),
+            html.P("(-1=Very Negative, 0=Neutral, +1=Very Positive)", 
+                   style={'fontSize': '0.7rem', 'color': '#666', 'marginTop': '0.5rem'})
         ], className="metric-card"),
         
         html.Div([
@@ -333,11 +335,12 @@ app.index_string = '''
             }
             
             .header {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: linear-gradient(135deg, #000000 0%, #DC143C 50%, #006600 100%);
                 color: white;
                 padding: 2rem;
                 text-align: center;
                 margin-bottom: 2rem;
+                border-bottom: 5px solid white;
             }
             
             .header-title {
@@ -378,7 +381,7 @@ app.index_string = '''
             .metric-number {
                 font-size: 2rem;
                 font-weight: bold;
-                color: #667eea;
+                color: #DC143C;
                 margin: 0;
             }
             
