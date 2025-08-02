@@ -196,35 +196,60 @@ app.layout = html.Div([
 )
 def update_sentiment_comparison(id):
     if df.empty:
-        # Return sample data if no real data available
+        # Return sample data if no real data available - fix array length mismatch
+        dates = pd.date_range('2024-06-01', '2025-07-31', freq='M')
         sample_data = pd.DataFrame({
-            'date': pd.date_range('2024-06-01', '2025-07-31', freq='M'),
-            'sentiment_2024': [-0.41] * 6 + [0] * 7,
-            'sentiment_2025': [0] * 6 + [-0.47] * 7
+            'date': dates,
+            'sentiment_2024': [-0.41] * len(dates),
+            'sentiment_2025': [-0.47] * len(dates)
         })
         
+        # Create simple comparison chart with fixed data
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=sample_data['date'][:6], y=sample_data['sentiment_2024'][:6], 
-                                mode='lines+markers', name='2024 (Finance Bill)', 
-                                line=dict(color='#DC143C', width=3)))  # Kenya red
-        fig.add_trace(go.Scatter(x=sample_data['date'][6:], y=sample_data['sentiment_2025'][6:], 
-                                mode='lines+markers', name='2025 (Saba Saba)', 
-                                line=dict(color='#006600', width=3)))  # Kenya green
         
-        fig.add_hline(y=0, line_dash="dash", line_color="black", annotation_text="Neutral")
+        # 2024 data (June-Dec)
+        dates_2024 = pd.date_range('2024-06-01', '2024-12-31', freq='M')
+        fig.add_trace(go.Scatter(
+            x=dates_2024, 
+            y=[-0.41] * len(dates_2024), 
+            mode='lines+markers', 
+            name='2024 (Finance Bill)', 
+            line=dict(color='#DC143C', width=4),
+            marker=dict(size=8)
+        ))
+        
+        # 2025 data (Jan-Jul)
+        dates_2025 = pd.date_range('2025-01-01', '2025-07-31', freq='M')
+        fig.add_trace(go.Scatter(
+            x=dates_2025, 
+            y=[-0.47] * len(dates_2025), 
+            mode='lines+markers', 
+            name='2025 (Saba Saba)', 
+            line=dict(color='#006600', width=4),
+            marker=dict(size=8)
+        ))
+        
+        # Add reference lines
+        fig.add_hline(y=0, line_dash="dash", line_color="gray", annotation_text="Neutral")
         fig.add_hline(y=-0.5, line_dash="dot", line_color="red", annotation_text="Strong Opposition")
         
         fig.update_layout(
             title="Sentiment Evolution: 2024 vs 2025",
-            xaxis_title="Date",
+            xaxis_title="Timeline",
             yaxis_title="Average Sentiment Score",
-            yaxis=dict(range=[-1, 0.5]),  # Limit y-axis to prevent infinite scroll
-            template="plotly_white"
+            yaxis=dict(range=[-0.6, 0.1], fixedrange=True),  # Fixed range prevents scrolling
+            xaxis=dict(fixedrange=True),  # Prevent horizontal scrolling
+            height=400,  # Fixed height
+            template="plotly_white",
+            showlegend=True
         )
         return fig
     
     # Process real data with outlier handling
     df_clean = df[df['textblob_polarity'].between(-1, 1)]  # Remove outliers
+    if df_clean.empty:
+        return fig  # Return the sample chart if no clean data
+        
     df_monthly = df_clean.groupby([df_clean['created_at'].dt.year, df_clean['created_at'].dt.month])['textblob_polarity'].mean().reset_index()
     df_monthly['date'] = pd.to_datetime(df_monthly[['created_at', 'month']].assign(day=1))
     
@@ -237,8 +262,13 @@ def update_sentiment_comparison(id):
     fig.add_hline(y=0, line_dash="dash", line_color="gray", annotation_text="Neutral")
     fig.add_hline(y=-0.5, line_dash="dot", line_color="red", annotation_text="Strong Opposition")
     
-    # Limit y-axis range
-    fig.update_layout(yaxis=dict(range=[-1, 0.5]))
+            # Improved responsive layout
+        fig.update_layout(
+            yaxis=dict(range=[-0.6, 0.1]),
+            height=400,
+            margin=dict(l=50, r=50, t=50, b=50),
+            font=dict(size=12)
+        )
     
     return fig
 
@@ -270,10 +300,13 @@ def update_intensity_comparison(id):
                  labels={'count': 'Number of Events', 'year': 'Year'},
                  color_discrete_map=intensity_colors)
     
-    # Limit y-axis to prevent outliers from making chart unusable
-    if not intensity_counts.empty:
-        max_count = intensity_counts['count'].quantile(0.95)  # Use 95th percentile as max
-        fig.update_layout(yaxis=dict(range=[0, max_count * 1.1]))
+    # Improved responsive layout
+    fig.update_layout(
+        yaxis=dict(range=[0, 250]),
+        height=400,
+        margin=dict(l=50, r=50, t=50, b=50),
+        font=dict(size=12)
+    )
     
     return fig
 
@@ -586,11 +619,25 @@ app.index_string = '''
             @media (max-width: 768px) {
                 .charts-row, .predictions-row {
                     flex-direction: column;
+                    gap: 1rem;
                 }
                 
                 .header-title {
                     font-size: 2rem;
                 }
+                
+                .chart-column {
+                    margin-bottom: 1rem;
+                }
+            }
+            
+            /* Fix for plotly charts responsive behavior */
+            .js-plotly-plot .plotly .modebar {
+                display: none !important;
+            }
+            
+            .js-plotly-plot .plotly .svg-container {
+                pointer-events: auto;
             }
         </style>
     </head>

@@ -1,6 +1,7 @@
 """
 Kenya Protest Tracker Dashboard
 Interactive web dashboard for visualizing protest data and sentiment analysis
+Enhanced with tabbed interface to prevent scrolling issues
 """
 
 import dash
@@ -51,7 +52,7 @@ tweets_df, sentiment_df = load_data()
 app = dash.Dash(__name__)
 app.title = "Kenya Protest Tracker"
 
-# Define the layout
+# Define the improved layout with tabs
 app.layout = html.Div([
     # Header
     html.Div([
@@ -63,7 +64,7 @@ app.layout = html.Div([
                className="header-timestamp")
     ], className="header"),
     
-    # Key Metrics Row
+    # Key Metrics Row (always visible)
     html.Div([
         html.Div([
             html.H3(f"{len(tweets_df):,}", className="metric-number"),
@@ -90,39 +91,16 @@ app.layout = html.Div([
         ], className="metric-card")
     ], className="metrics-row"),
     
-    # Charts Section
+    # Tabbed Interface
     html.Div([
-        # Left Column
-        html.Div([
-            html.H3("📈 Daily Activity Trends"),
-            dcc.Graph(id="daily-activity-chart"),
-            
-            html.H3("💭 Sentiment Distribution"),
-            dcc.Graph(id="sentiment-pie-chart")
-        ], className="chart-column"),
+        dcc.Tabs(id="main-tabs", value='analytics-tab', children=[
+            dcc.Tab(label='📊 Analytics Dashboard', value='analytics-tab', className='custom-tab'),
+            dcc.Tab(label='🗺️ Interactive Map', value='map-tab', className='custom-tab'),
+            dcc.Tab(label='🔍 Insights & Recommendations', value='insights-tab', className='custom-tab'),
+        ], className='custom-tabs'),
         
-        # Right Column
-        html.Div([
-            html.H3("🌍 Geographic Distribution"),
-            dcc.Graph(id="location-chart"),
-            
-            html.H3("#️⃣ Top Hashtags"),
-            dcc.Graph(id="hashtag-chart")
-        ], className="chart-column")
-    ], className="charts-row"),
-    
-    # Map Section
-    html.Div([
-        html.H3("🗺️ Interactive Protest Map"),
-        html.P("Click on markers to see tweet details. Colors represent sentiment: 🟢 Positive, 🔴 Negative, ⚪ Neutral"),
-        dcc.Graph(id="protest-map", style={'height': '600px'})
-    ], className="map-section"),
-    
-    # Insights Section
-    html.Div([
-        html.H3("🔍 Key Insights"),
-        html.Div(id="insights-content")
-    ], className="insights-section"),
+        html.Div(id='tab-content', className='tab-content-container')
+    ], className="tabs-section"),
     
     # Footer
     html.Div([
@@ -131,6 +109,53 @@ app.layout = html.Div([
     ], className="footer")
 ])
 
+# Tab content callback
+@callback(
+    Output('tab-content', 'children'),
+    Input('main-tabs', 'value')
+)
+def render_tab_content(active_tab):
+    if active_tab == 'analytics-tab':
+        return html.Div([
+            # Charts Section with improved layout
+            html.Div([
+                # Left Column
+                html.Div([
+                    html.H3("📈 Daily Activity Trends"),
+                    dcc.Graph(id="daily-activity-chart", config={'displayModeBar': False}),
+                    
+                    html.H3("💭 Sentiment Distribution"),
+                    dcc.Graph(id="sentiment-pie-chart", config={'displayModeBar': False})
+                ], className="chart-column"),
+                
+                # Right Column
+                html.Div([
+                    html.H3("🌍 Geographic Distribution"),
+                    dcc.Graph(id="location-chart", config={'displayModeBar': False}),
+                    
+                    html.H3("#️⃣ Top Hashtags"),
+                    dcc.Graph(id="hashtag-chart", config={'displayModeBar': False})
+                ], className="chart-column")
+            ], className="charts-row")
+        ])
+    
+    elif active_tab == 'map-tab':
+        return html.Div([
+            html.Div([
+                html.H3("🗺️ Interactive Protest Map"),
+                html.P("Click on markers to see tweet details. Colors represent sentiment: 🟢 Positive, 🔴 Negative, ⚪ Neutral"),
+                dcc.Graph(id="protest-map", style={'height': '70vh'}, config={'displayModeBar': True})
+            ], className="map-section-full")
+        ])
+    
+    elif active_tab == 'insights-tab':
+        return html.Div([
+            html.Div([
+                html.H3("🔍 Key Insights & Analysis"),
+                html.Div(id="insights-content")
+            ], className="insights-section-full")
+        ])
+
 # Callbacks for interactive charts
 @callback(
     Output('daily-activity-chart', 'figure'),
@@ -138,7 +163,22 @@ app.layout = html.Div([
 )
 def update_daily_activity(id):
     if tweets_df.empty:
-        return {}
+        # Return sample chart with fixed range
+        sample_dates = pd.date_range('2024-06-01', '2024-06-30', freq='D')
+        sample_counts = [50 + i*2 for i in range(len(sample_dates))]
+        
+        fig = px.line(x=sample_dates, y=sample_counts,
+                      title="Daily Tweet Volume (Sample Data)",
+                      labels={'x': 'Date', 'y': 'Number of Tweets'})
+        
+        fig.update_layout(
+            yaxis=dict(range=[0, 200]),
+            height=400,
+            showlegend=False,
+            margin=dict(l=50, r=50, t=50, b=50),
+            font=dict(size=12)
+        )
+        return fig
     
     daily_counts = tweets_df.groupby(tweets_df['created_at'].dt.date).size().reset_index()
     daily_counts.columns = ['date', 'count']
@@ -146,7 +186,14 @@ def update_daily_activity(id):
     fig = px.line(daily_counts, x='date', y='count',
                   title="Daily Tweet Volume",
                   labels={'count': 'Number of Tweets', 'date': 'Date'})
-    fig.update_layout(showlegend=False)
+    
+    # Improved layout configuration
+    fig.update_layout(
+        height=400,
+        showlegend=False,
+        margin=dict(l=50, r=50, t=50, b=50),
+        font=dict(size=12)
+    )
     return fig
 
 @callback(
@@ -183,7 +230,13 @@ def update_location_chart(id):
                  orientation='h',
                  title="Top Locations by Tweet Volume",
                  labels={'x': 'Number of Tweets', 'y': 'Location'})
-    fig.update_layout(yaxis={'categoryorder': 'total ascending'})
+    
+    fig.update_layout(
+        yaxis={'categoryorder': 'total ascending'},
+        height=400,
+        margin=dict(l=50, r=50, t=50, b=50),
+        font=dict(size=12)
+    )
     return fig
 
 @callback(
@@ -332,6 +385,7 @@ app.index_string = '''
                 margin: 0;
                 padding: 0;
                 background-color: #f8f9fa;
+                overflow-x: hidden;
             }
             
             .header {
@@ -366,6 +420,7 @@ app.index_string = '''
                 justify-content: space-around;
                 margin: 2rem 0;
                 flex-wrap: wrap;
+                padding: 0 1rem;
             }
             
             .metric-card {
@@ -376,6 +431,11 @@ app.index_string = '''
                 text-align: center;
                 min-width: 150px;
                 margin: 0.5rem;
+                transition: transform 0.3s ease;
+            }
+            
+            .metric-card:hover {
+                transform: translateY(-5px);
             }
             
             .metric-number {
@@ -391,34 +451,75 @@ app.index_string = '''
                 font-size: 0.9rem;
             }
             
+            /* Tab Styling */
+            .tabs-section {
+                margin: 2rem 1rem;
+            }
+            
+            .custom-tabs {
+                border-bottom: 2px solid #DC143C;
+                margin-bottom: 2rem;
+            }
+            
+            .custom-tab {
+                background: white;
+                border: 1px solid #ddd;
+                border-bottom: none;
+                padding: 12px 24px;
+                margin-right: 4px;
+                border-radius: 8px 8px 0 0;
+                font-weight: 600;
+                color: #333;
+                transition: all 0.3s ease;
+            }
+            
+            .custom-tab:hover {
+                background: #f0f0f0;
+                transform: translateY(-2px);
+            }
+            
+            .custom-tab--selected {
+                background: #DC143C !important;
+                color: white !important;
+                border-bottom: 2px solid #DC143C;
+            }
+            
+            .tab-content-container {
+                min-height: 500px;
+                background: white;
+                border-radius: 10px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                padding: 1rem;
+            }
+            
             .charts-row {
                 display: flex;
-                margin: 2rem 0;
+                margin: 1rem 0;
                 gap: 2rem;
             }
             
             .chart-column {
                 flex: 1;
-                background: white;
+                background: #f8f9fa;
                 padding: 1.5rem;
                 border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                border: 1px solid #e9ecef;
+                min-height: 400px;
             }
             
-            .map-section {
+            .map-section-full {
                 background: white;
                 padding: 1.5rem;
                 border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                margin: 2rem 0;
+                min-height: 80vh;
             }
             
-            .insights-section {
+            .insights-section-full {
                 background: white;
                 padding: 1.5rem;
                 border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                margin: 2rem 0;
+                max-height: 70vh;
+                overflow-y: auto;
             }
             
             .footer {
@@ -437,6 +538,38 @@ app.index_string = '''
                 color: #333;
                 border-bottom: 2px solid #667eea;
                 padding-bottom: 0.5rem;
+                margin-top: 0;
+            }
+            
+            /* Responsive Design */
+            @media (max-width: 768px) {
+                .charts-row {
+                    flex-direction: column;
+                    gap: 1rem;
+                }
+                
+                .metrics-row {
+                    flex-direction: column;
+                    align-items: center;
+                }
+                
+                .header-title {
+                    font-size: 2rem;
+                }
+                
+                .custom-tab {
+                    font-size: 0.9rem;
+                    padding: 10px 16px;
+                }
+            }
+            
+            /* Fix for plotly charts responsive behavior */
+            .js-plotly-plot .plotly .modebar {
+                display: none !important;
+            }
+            
+            .js-plotly-plot .plotly .svg-container {
+                pointer-events: auto;
             }
         </style>
     </head>
